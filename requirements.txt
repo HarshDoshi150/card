@@ -2,4 +2,5 @@ flask
 pandas
 pillow
 openpyxl
+Flask-Session
 gunicorn
