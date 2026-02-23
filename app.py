@@ -9,12 +9,14 @@ import io
 from flask_session import Session
 import logging
 import re
+from flask_cors import CORS  # optional if frontend AJAX/cookies used
 
 # ----------------- App Setup ----------------- #
 app = Flask(__name__)
+CORS(app, origins="https://card-stec.onrender.com", supports_credentials=True)  # adjust your frontend URL
 app.secret_key = os.environ.get("SECRET_KEY", "fallback-key")
 app.config["SESSION_TYPE"] = "filesystem"
-app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10MB file limit
+app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10MB limit
 Session(app)
 
 # ----------------- Fixed Positions ----------------- #
@@ -136,29 +138,24 @@ def index():
                 if not name:
                     continue
 
-                # ----------------- CONTROLLED % FORMATTING ----------------- #
                 paragraph = paragraph_template
-
                 for ph in placeholders_in_template:
                     column_name = ph.title()
                     raw_value = str(row.get(column_name, "N/A")).strip()
-
-                    # Add % ONLY if placeholder is Conversion
                     if column_name == "Conversion":
                         formatted_value = f"{raw_value}%"
                     else:
                         formatted_value = raw_value
-
                     paragraph = paragraph.replace(f"{{{ph}}}", formatted_value)
 
-                # ----------------- Format Month ----------------- #
+                # Format Month
                 month_val = row.get("Month", "")
                 try:
                     month = pd.to_datetime(str(month_val)).strftime("%B %Y")
                 except:
                     month = str(month_val).strip()
 
-                # ----------------- Create Image ----------------- #
+                # Create Image
                 img = Image.open(resource_path("static/certificate.png")).convert("RGB")
                 draw = ImageDraw.Draw(img)
                 img_width, _ = img.size
@@ -180,16 +177,12 @@ def index():
                 para_font = ImageFont.truetype(resource_path("static/Montserrat-Bold.ttf"), 40)
                 draw_paragraph(draw, paragraph, para_font, para_x, PARA_Y, para_max_width, PARA_LINE_SPACING)
 
-                # ----------------- Save PDF to ZIP ----------------- #
-                safe_name = "".join(
-                    c for c in name if c.isalnum() or c in (" ", "_")
-                ).rstrip().replace(" ", "_")
-
+                # Save PDF to ZIP
+                safe_name = "".join(c for c in name if c.isalnum() or c in (" ", "_")).rstrip().replace(" ", "_")
                 img_bytes = io.BytesIO()
                 img.save(img_bytes, "PDF", resolution=100.0)
                 img_bytes.seek(0)
                 zipf.writestr(f"{safe_name}.pdf", img_bytes.read())
-
                 generated_count += 1
 
             except Exception:
@@ -198,7 +191,6 @@ def index():
 
         zipf.close()
         output_buffer.seek(0)
-
         session["cert_zip"] = output_buffer.getvalue()
         session["total"] = generated_count
 
@@ -224,6 +216,5 @@ def download_zip():
 
 # ----------------- Run App ----------------- #
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
+    port = int(os.environ.get("PORT", 5000))  # 5000 for local dev
     app.run(host="0.0.0.0", port=port, debug=True)
-
